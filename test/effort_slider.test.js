@@ -18,7 +18,7 @@ test("effort rows enumerate every announced level and mark the current one", () 
   assert.deepEqual(rows[0], {
     index: 0,
     optionId: `${EFFORT_CONTROL_ID}:0`,
-    label: "档位 1",
+    label: "Level 1",
     checked: false,
     disabled: false,
   });
@@ -28,7 +28,7 @@ test("effort rows enumerate every announced level and mark the current one", () 
 
 test("effort rows fall back to an ordinal label when the current name is absent", () => {
   const rows = reasoningEffortRowsFromFacts({ index: 0, total: 2, label: "" });
-  assert.deepEqual(rows.map((row) => row.label), ["档位 1", "档位 2"]);
+  assert.deepEqual(rows.map((row) => row.label), ["Level 1", "Level 2"]);
 });
 
 test("effort rows reject unreadable slider facts", () => {

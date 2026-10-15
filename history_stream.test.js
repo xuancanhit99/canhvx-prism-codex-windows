@@ -181,7 +181,7 @@ withRollout([
 ], (file) => {
   const [turn] = __test.historyTurnsFromTail(file, "thread-4", 20);
   assert.equal(turn.messages[1].Type, "progress");
-  assert(turn.messages[1].Progress.Steps.some((item) => item.Title === "读取 src/main.js"));
+  assert(turn.messages[1].Progress.Steps.some((item) => item.Title === "Read src/main.js"));
 });
 
 withRollout([
@@ -212,7 +212,7 @@ withRollout([
   const [turn] = __test.historyTurnsFromTail(file, "thread-interrupted", 20);
   const progress = turn.messages[1];
   assert.equal(progress.Status, "interrupted");
-  assert.equal(progress.Content, "已被打断");
+  assert.equal(progress.Content, "Interrupted");
   assert.equal(turn.messages.length, 2);
   assert(progress.Progress.Steps.some((item) => item.Kind === "tool"));
 });
@@ -226,7 +226,7 @@ withRollout([
   assert.equal(turn.messages.length, 2);
   assert.equal(turn.messages[0].Content, "运行后停止");
   assert.equal(turn.messages[1].Status, "interrupted");
-  assert.equal(turn.messages[1].Content, "已被打断");
+  assert.equal(turn.messages[1].Content, "Interrupted");
   assert.doesNotMatch(JSON.stringify(turn), /turn_aborted/i);
 });
 

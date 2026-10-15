@@ -193,7 +193,7 @@ test("plan mode detail publishes an idempotent boolean target", () => {
   }), {
     enabled: true,
     available: true,
-    actions: [{ id: "plan.set", label: "关闭计划模式", available: true, target: { enabled: false } }],
+    actions: [{ id: "plan.set", label: "Turn off plan mode", available: true, target: { enabled: false } }],
   });
 });
 

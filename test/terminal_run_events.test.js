@@ -35,10 +35,10 @@ test("terminal dedup keys on native tasks, never on appended metadata or UI lag"
 
 test("terminal run summary prefers rollout text for completed and error text for failed", () => {
   assert.equal(desktopTerminalRunSummary("completed", "Codex 已完成。", "最终回答正文"), "最终回答正文");
-  assert.equal(desktopTerminalRunSummary("completed", "", ""), "Codex 已完成。");
+  assert.equal(desktopTerminalRunSummary("completed", "", ""), "Codex completed.");
   assert.equal(desktopTerminalRunSummary("failed", "执行出错：超时", ""), "执行出错：超时");
-  assert.equal(desktopTerminalRunSummary("failed", "", ""), "Codex 执行失败。");
-  assert.equal(desktopTerminalRunSummary("interrupted", "", ""), "Codex 任务已被打断。");
+  assert.equal(desktopTerminalRunSummary("failed", "", ""), "Codex run failed.");
+  assert.equal(desktopTerminalRunSummary("interrupted", "", ""), "Codex task interrupted.");
 });
 
 test("terminal run event carries routing payload for the hub conversation forward", () => {

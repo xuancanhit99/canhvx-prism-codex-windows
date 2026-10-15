@@ -14,7 +14,8 @@ const { createCodexDesktopController, probeCodexMainPage } = require("./codex_cd
 const execFileAsync = promisify(execFile);
 const SESSION_INDEX = path.join(os.homedir(), ".codex", "session_index.jsonl");
 const SESSION_ROOT = path.join(os.homedir(), ".codex", "sessions");
-const PLUGIN_STATE_FILE = path.join(os.homedir(), ".prism", "codex.state.json");
+const PLUGIN_ID = process.env.PRISM_CODEX_PLUGIN_ID || "codex";
+const PLUGIN_STATE_FILE = path.join(os.homedir(), ".prism", `${PLUGIN_ID}.state.json`);
 const STATE_DB_CANDIDATES = [
   path.join(os.homedir(), ".codex", "state_5.sqlite"),
   path.join(os.homedir(), ".codex", "sqlite", "state_5.sqlite"),
@@ -373,7 +374,7 @@ function emitAgentUsageUpdated() {
       ID: randomID(),
       Type: "agent.usage.updated",
       Status: "completed",
-      Summary: "Codex 账户用量已更新。",
+      Summary: "Codex account usage updated.",
       Payload: {},
       CreatedAt: now(),
     });
@@ -948,7 +949,7 @@ function classifyThreadProject(cwd = "") {
     return {
       isProjectThread: false,
       projectKey: "conversation",
-      projectName: "对话",
+      projectName: "Conversation",
       projectPath: "",
     };
   }
@@ -1188,7 +1189,7 @@ async function execStateSQL(sql) {
 
 async function updateThreadStateColumns(threadID, columns) {
   if (!isThreadID(threadID)) {
-    throw new Error("线程 ID 不正确。");
+    throw new Error("Invalid thread ID.");
   }
   const assignments = [];
   for (const [key, value] of Object.entries(columns || {})) {
@@ -1843,7 +1844,7 @@ function readRolloutContextMetadata(file) {
       context_tokens_used: contextTokensUsed,
       context_window_total: contextWindowTotal,
       context_window_usage_percent: contextWindowUsagePercent,
-      context_window: contextWindowTotal ? `上下文窗口 ${contextWindowTotal}` : "",
+      context_window: contextWindowTotal ? `Context window ${contextWindowTotal}` : "",
     }).filter(([, value]) => value),
   );
 }
@@ -1857,11 +1858,11 @@ function boundedHistoryText(value, max = HISTORY_MESSAGE_MAX_CHARS) {
     // Attachments are represented by metadata. Never relay their bytes in a
     // Markdown data URI, even before the Hub public projection applies the
     // same defence in depth.
-    .replace(/data:[a-z][a-z0-9.+-]*\/[a-z0-9.+-]+(?:;[a-z0-9.+-]+)*,[a-z0-9+/=_-]+/gi, "[附件内容已省略]")
+    .replace(/data:[a-z][a-z0-9.+-]*\/[a-z0-9.+-]+(?:;[a-z0-9.+-]+)*,[a-z0-9+/=_-]+/gi, "[Attachment content omitted]")
     .replace(/\r\n/g, "\n")
     .trim();
   if (text.length <= max) return text;
-  return `${text.slice(0, max)}\n\n[内容过长，已省略后续部分]`;
+  return `${text.slice(0, max)}\n\n[Remaining content omitted]`;
 }
 
 function extractPlainTextDeep(value, seen = new Set()) {
@@ -1981,15 +1982,15 @@ function formatToolCall(payload, options = {}) {
   if (name === "exec_command" || name === "exec") {
     const cmd = String(args.cmd || args.raw || commandFromToolInput(payload.input) || "").trim();
     const target = commandTarget(cmd);
-    if (/\bgit\s+status\b/.test(cmd)) return "检查项目状态";
-    if (/\b(?:rg|grep|find)\b/.test(cmd)) return target ? `搜索 ${target}` : "搜索项目文件";
-    if (/\b(?:cat|sed|head|tail|nl)\b/.test(cmd)) return target ? `读取 ${target}` : "读取项目文件";
-    return `执行 ${truncateText(cmd, 90) || "本地命令"}`;
+    if (/\bgit\s+status\b/.test(cmd)) return "Check project status";
+    if (/\b(?:rg|grep|find)\b/.test(cmd)) return target ? `Search ${target}` : "Search project files";
+    if (/\b(?:cat|sed|head|tail|nl)\b/.test(cmd)) return target ? `Read ${target}` : "Read project files";
+    return `Run ${truncateText(cmd, 90) || "local command"}`;
   }
   if (name === "apply_patch") {
-    return options.complete ? "已编辑文件" : "正在编辑文件";
+    return options.complete ? "Files edited" : "Editing files";
   }
-  if (name === "wait") return "等待操作完成";
+  if (name === "wait") return "Waiting for operation";
   if (name === "view_image") return `View image${args.path ? ` ${shortPath(args.path)}` : ""}`;
   return rawName;
 }
@@ -2155,31 +2156,31 @@ function stepFromEvent(item) {
   const payload = item.payload || {};
   if (item.type === "event_msg") {
     const failureText = extractFailureTextFromPayload(payload);
-    if (failureText) return { kind: "error", label: "失败", text: failureText, time: item.timestamp };
-    if (payload.type === "task_started") return { kind: "start", label: "开始", text: "开始处理这条消息", time: item.timestamp };
-    if (payload.type === "task_complete") return { kind: "complete", label: "完成", text: "回复完成", time: item.timestamp };
+    if (failureText) return { kind: "error", label: "Failed", text: failureText, time: item.timestamp };
+    if (payload.type === "task_started") return { kind: "start", label: "Started", text: "Processing message", time: item.timestamp };
+    if (payload.type === "task_complete") return { kind: "complete", label: "Completed", text: "Reply completed", time: item.timestamp };
     if (payload.type === "agent_reasoning" && payload.text) {
-      return { kind: "thinking", label: "思考", text: String(payload.text).trim(), time: item.timestamp };
+      return { kind: "thinking", label: "Thinking", text: String(payload.text).trim(), time: item.timestamp };
     }
     if (payload.type === "agent_message" && payload.message) {
-      return { kind: "thinking", label: "思考", text: String(payload.message).trim(), time: item.timestamp };
+      return { kind: "thinking", label: "Thinking", text: String(payload.message).trim(), time: item.timestamp };
     }
     return null;
   }
   if (item.type === "response_item") {
     if (payload.type === "reasoning") {
       const text = extractReasoningText(payload);
-      return text ? { kind: "thinking", label: "思考", text, time: item.timestamp } : null;
+      return text ? { kind: "thinking", label: "Thinking", text, time: item.timestamp } : null;
     }
     if (payload.type === "function_call") {
-      return { kind: "tool", label: "工具", text: formatToolCall(payload), callId: payload.call_id || "", time: item.timestamp };
+      return { kind: "tool", label: "Tool", text: formatToolCall(payload), callId: payload.call_id || "", time: item.timestamp };
     }
     if (payload.type === "message") {
       const text = extractTextFromContent(payload.content, payload.role);
       if (text && payload.role === "assistant") {
         return {
           kind: payload.phase === "final_answer" ? "final" : "assistant",
-          label: "回复",
+          label: "Reply",
           text: truncateText(text, 1200),
           time: item.timestamp,
         };
@@ -2201,7 +2202,7 @@ function runTraceFromSteps(steps = []) {
     trace.push({
       id: firstNonEmpty(String(step.callId || ""), `${step.time || "trace"}:${index}`),
       kind,
-      title: firstNonEmpty(step.label, kind === "tool" ? "工具" : kind === "reasoning" ? "推理" : "状态"),
+      title: firstNonEmpty(step.label, kind === "tool" ? "Tool" : kind === "reasoning" ? "Reasoning" : "Status"),
       detail,
       status,
       created_at: firstNonEmpty(step.time),
@@ -2624,7 +2625,7 @@ function normalizeRuntimeNotices(notices = []) {
     out.push({
       ID: `progress:status:${crypto.createHash("sha256").update(key).digest("hex").slice(0, 16)}`,
       Kind: "status",
-      Title: title || "状态",
+      Title: title || "Status",
       Detail: detail,
       Status: String(notice && notice.status || "running").trim().toLowerCase() || "running",
       CreatedAt: asISOString(notice && notice.created_at) || now(),
@@ -2777,7 +2778,7 @@ function historyToolResultFromRolloutRow(row, callTitles = new Map()) {
     ID: `progress:tool_result:${callID}`,
     Kind: "tool_result",
     CallID: callID,
-    Title: callTitles.get(callID) || "执行结果",
+    Title: callTitles.get(callID) || "Result",
     Detail: detail,
     Status: explicitStatus || inferredStatus,
     CreatedAt: asISOString(row.timestamp_ms ?? row.timestamp ?? payload.updated_at ?? payload.created_at),
@@ -2995,14 +2996,14 @@ function processedDuration(startedAt, completedAt) {
   const seconds = Number.isFinite(start) && Number.isFinite(end)
     ? Math.max(0, Math.floor((end - start) / 1000))
     : 0;
-  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
 function progressStepFromAssistantMessage(message, status = "completed") {
   return {
     ID: `progress:assistant_text:${message.ID}`,
     Kind: "assistant_text",
-    Title: "回复中",
+    Title: "Replying",
     Detail: message.Content,
     Status: status,
     CreatedAt: message.CreatedAt,
@@ -3038,7 +3039,7 @@ function historyProgressMessage(user, entries, terminalState = {}) {
     };
   });
   const timestamp = firstNonEmpty(terminalState.completedAt, finalMessage?.UpdatedAt, steps.at(-1)?.CreatedAt, user.UpdatedAt, user.CreatedAt);
-  const interruptedSummary = "已被打断";
+  const interruptedSummary = "Interrupted";
   const progress = {
     ID: `progress:${user.ID}`,
     Role: "assistant",
@@ -3046,8 +3047,8 @@ function historyProgressMessage(user, entries, terminalState = {}) {
     Content: terminalStatus === "interrupted"
       ? interruptedSummary
       : terminalStatus === "failed"
-        ? firstNonEmpty(terminalState.error, "Codex 执行失败。")
-        : terminal ? `已处理 ${processedDuration(user.CreatedAt, timestamp)}` : liveAssistantText,
+        ? firstNonEmpty(terminalState.error, "Codex run failed.")
+        : terminal ? `Done in ${processedDuration(user.CreatedAt, timestamp)}` : liveAssistantText,
     Status: terminalStatus,
     CreatedAt: user.CreatedAt,
     UpdatedAt: timestamp,
@@ -3472,7 +3473,7 @@ async function readStatus(session, runID) {
       active: false,
       status: "idle",
       thread_id: threadID,
-      preview: "还没有找到这个线程的回复记录。",
+      preview: "No replies found for this conversation yet.",
       final: "",
       error: "",
       process_text: "",
@@ -3644,10 +3645,10 @@ async function readStatus(session, runID) {
     phase,
     preview: finalText || previewText || failureText || (
       waitingApproval
-        ? "Codex 正在等待审批…"
+        ? "Codex is waiting for approval..."
         : queuePending
-          ? "消息已排队，等待当前任务结束后发送…"
-          : (waiting ? "已发送，等待 Codex 开始回复…" : active ? "Codex 正在回复…" : "暂无可显示回复。")
+          ? "Message queued until the current task finishes..."
+          : (waiting ? "Sent, waiting for Codex..." : active ? "Codex is replying..." : "No reply to display yet.")
     ),
     steps: statusSteps,
     trace: { items: runTraceFromSteps(statusSteps), truncated: steps.length > statusSteps.length },
@@ -4346,7 +4347,7 @@ async function readCodexInteractiveControls(controller) {
   // through data-codex-intelligence-trigger and session-time ARIA ownership.
   const intelligenceControl = dynamicInteractiveControl(
     intelligence && intelligence.controlId,
-    "模型与推理",
+    "Model and reasoning",
     intelligence && intelligence.currentValue,
     ["model", "reasoning"],
   );
@@ -4357,7 +4358,7 @@ async function readCodexInteractiveControls(controller) {
   // Mobile control readable without deriving any option from localized text.
   const permissionControl = dynamicInteractiveControl(
     "codex.permission",
-    "权限",
+    "Permissions",
     permission && permission.currentValue,
     ["permission"],
   );
@@ -4539,7 +4540,7 @@ async function describeCodexMenuSession(threadID = "", owner = null, options = {
       ok: true,
       action: "menu_session.describe",
       thread_id: threadID,
-      message: "桌面菜单已读取。",
+      message: "Desktop menu loaded.",
       details: created,
     };
   });
@@ -4636,7 +4637,7 @@ async function applyCodexMenuSession(threadID = "", target = null, options = {})
       ok: true,
       action: "menu_session.apply",
       thread_id: threadID,
-      message: appliedSurface ? "桌面正在等待确认。" : "桌面菜单操作已提交，等待状态同步。",
+      message: appliedSurface ? "Desktop is waiting for confirmation." : "Menu action submitted, waiting for sync.",
       details,
     };
   });
@@ -4780,7 +4781,7 @@ function detailContextFields(thread = null) {
       context_window_total: contextWindowTotal,
       context_tokens_used: contextTokensUsed,
       context_window_usage_percent: contextWindowUsagePercent,
-      context_window: contextWindowTotal ? `上下文窗口 ${contextWindowTotal}` : "",
+      context_window: contextWindowTotal ? `Context window ${contextWindowTotal}` : "",
     }).filter(([, value]) => value),
   );
 }
@@ -4806,7 +4807,7 @@ function planModeDetailFromRuntime(runtime = {}, controlsLocked = false) {
     available: raw.available === true,
     actions: [{
       id: "plan.set",
-      label: enabled ? "关闭计划模式" : "开启计划模式",
+      label: enabled ? "Turn off plan mode" : "Turn on plan mode",
       available,
       target: { enabled: !enabled },
     }],
@@ -4823,14 +4824,14 @@ function goalDetailFromRuntime(runtime = {}, controlsLocked = false) {
   const hasAction = (name) => !rawActions || rawActions[name] === true;
   const actions = [];
   if (status === "none") {
-    actions.push({ id: "goal.set", label: "设置目标", available: available && !controlsLocked && runtime.running !== true, requires_input: true });
+    actions.push({ id: "goal.set", label: "Set goal", available: available && !controlsLocked && runtime.running !== true, requires_input: true });
   } else {
     // Codex's native Edit Goal control opens a separate workspace page. It is
     // intentionally not exposed remotely: clearing and recreating a goal is
     // not an equivalent operation and can break the native send lifecycle.
-    if (status === "running" && hasAction("pause")) actions.push({ id: "goal.pause", label: "暂停目标", available: available && !controlsLocked });
-    if (status === "paused" && hasAction("resume")) actions.push({ id: "goal.resume", label: "恢复目标", available: available && !controlsLocked });
-    if (hasAction("clear")) actions.push({ id: "goal.clear", label: "清除目标", available: available && !controlsLocked });
+    if (status === "running" && hasAction("pause")) actions.push({ id: "goal.pause", label: "Pause goal", available: available && !controlsLocked });
+    if (status === "paused" && hasAction("resume")) actions.push({ id: "goal.resume", label: "Resume goal", available: available && !controlsLocked });
+    if (hasAction("clear")) actions.push({ id: "goal.clear", label: "Clear goal", available: available && !controlsLocked });
   }
   return {
     status,
@@ -4880,7 +4881,7 @@ async function conversationDetailSnapshotFromDesktop(threadID = "", options = {}
   rememberVisibleGoalBody(threadID, goalDetailFromRuntime(projectedRuntime));
   const currentRun = controlsRuntimeFromDesktopSnapshot(threadID, projectedRuntime) || {
     status: "idle",
-    summary: "当前会话空闲。",
+    summary: "Conversation is idle.",
     primary_action: "send",
   };
   const runtimeStatus = String(currentRun && currentRun.status || "").trim().toLowerCase();
@@ -5145,10 +5146,10 @@ function controlsRuntimeFromDesktopSnapshot(threadID = "", runtime = null) {
       task_id: "",
       status: terminalStatus,
       summary: terminalStatus === "interrupted"
-        ? "任务已被打断。"
+        ? "Task interrupted."
         : terminalStatus === "failed"
-          ? firstNonEmpty(recordedTerminal.error, "Codex 执行失败。")
-          : "Codex 已完成。",
+          ? firstNonEmpty(recordedTerminal.error, "Codex run failed.")
+          : "Codex completed.",
       active: false,
       interruptible: false,
       approval_blocked: false,
@@ -5177,12 +5178,12 @@ function controlsRuntimeFromDesktopSnapshot(threadID = "", runtime = null) {
     task_id: firstNonEmpty(approval && approval.approval_request_id, approval && approval.id),
     status,
     summary: waitingApproval
-      ? "Codex 正在等待审批…"
+      ? "Codex is waiting for approval..."
       : queuePending
-        ? "消息已排队，等待当前任务结束后发送…"
+        ? "Message queued until the current task finishes..."
         : running
-          ? "Codex 正在回复…"
-          : "当前会话空闲。",
+          ? "Codex is replying..."
+          : "Conversation is idle.",
     active: waitingApproval || running,
     interruptible: running,
     approval_blocked: waitingApproval,
@@ -5297,7 +5298,7 @@ async function controlCodexQueue(threadID = "", action = "", target = null) {
     ok: true,
     action: normalizedAction,
     thread_id: threadID,
-    message: "桌面排队消息操作已提交，等待状态同步。",
+    message: "Queue action submitted, waiting for sync.",
     details: {},
   };
 }
@@ -5329,7 +5330,7 @@ async function applyCodexInteractiveSurface(threadID = "", target = null) {
       ok: true,
       action: "interactive.surface.apply",
       thread_id: threadID,
-      message: "桌面交互已提交，等待状态同步。",
+      message: "Desktop action submitted, waiting for sync.",
       details: {},
     };
   });
@@ -5371,7 +5372,7 @@ async function controlCodexPlanMode(threadID = "", target = null) {
       ok: true,
       action: "plan.set",
       thread_id: threadID,
-      message: enabled ? "计划模式已开启。" : "计划模式已关闭。",
+      message: enabled ? "Plan mode enabled." : "Plan mode disabled.",
       details: { plan_mode: planModeDetailFromRuntime({ plan_mode: planMode }) },
     };
   });
@@ -5403,7 +5404,7 @@ async function controlCodexGoal(threadID = "", action = "", target = null) {
       ok: true,
       action: normalized,
       thread_id: threadID,
-      message: normalized === "goal.clear" ? "目标已清除。" : "目标状态已更新。",
+      message: normalized === "goal.clear" ? "Goal cleared." : "Goal updated.",
       details: { goal: goalDetailFromRuntime({ goal }) },
     };
   });
@@ -5439,8 +5440,8 @@ async function controlSession(req) {
             action: "conversation.select",
             thread_id: threadID,
             message: selected.selected
-              ? selected.already_selected ? "Codex 桌面已显示该会话。" : "Codex 桌面会话已切换。"
-              : "Codex 桌面未能显示目标会话，请稍后重试同步。",
+              ? selected.already_selected ? "Conversation already open on desktop." : "Desktop conversation switched."
+              : "Could not open conversation on desktop. Try syncing again.",
             details: {
               selected: selected.selected,
               already_selected: selected.already_selected,
@@ -5551,7 +5552,7 @@ async function describeCodexControls(threadID = "", options = {}) {
   return {
     ok: true,
     thread_id: threadID,
-    message: "已读取 Codex 控制能力。",
+    message: "Codex controls loaded.",
     details: {
       supported: true,
       current_run: currentRuntime,
@@ -5566,6 +5567,9 @@ async function describeCodexControls(threadID = "", options = {}) {
 }
 
 async function capability() {
+  if (PLUGIN_ID === 'codex-windows') {
+    try { await require('./windows-bootstrap.cjs').updateConnection(); } catch { /* capability remains unavailable */ }
+  }
   const localStateAvailable = codexInstalled() && (Boolean(stateDBPath()) || fs.existsSync(SESSION_INDEX));
   // Probe only the native CDP surface. Waiting for a visible workspace here
   // would block the 15s reverse-sync reconciliation that owns the watcher.
@@ -5575,7 +5579,7 @@ async function capability() {
     : desktopControlAvailable ? "" : "codex_desktop_control_unavailable";
   const available = localStateAvailable && desktopControlAvailable;
   return {
-    PluginID: "codex",
+    PluginID: PLUGIN_ID,
     Available: available,
     NativeVisibleInput: available,
     NativeVisibleOutput: available,
@@ -5601,7 +5605,7 @@ async function capability() {
 async function discovery() {
   const currentCapability = await capability();
   return {
-    PluginID: "codex",
+    PluginID: PLUGIN_ID,
     Surface: "codex-desktop",
     Endpoint: "codex-desktop://managed-thread/<id>",
     ProcessID: 0,
@@ -5621,7 +5625,7 @@ async function discovery() {
 
 function toSession(threadID, cwd = "", metadata = {}) {
   return {
-    PluginID: "codex",
+    PluginID: PLUGIN_ID,
     NativeSessionID: threadID,
     NativeThreadID: threadID,
     Surface: "codex-desktop",
@@ -5639,7 +5643,7 @@ async function listSessions() {
     count: threads.length,
   });
   return threads.map((item) => ({
-    PluginID: "codex",
+    PluginID: PLUGIN_ID,
     NativeSessionID: item.id,
     NativeThreadID: item.id,
     Surface: "codex-desktop",
@@ -6050,9 +6054,9 @@ async function desktopRunFileWatchPoll(threadID) {
 
 function desktopTerminalRunSummary(status, runSummary, latestSummary) {
   if (status === "completed") {
-    return firstNonEmpty(latestSummary, runSummary) || "Codex 已完成。";
+    return firstNonEmpty(latestSummary, runSummary) || "Codex completed.";
   }
-  return firstNonEmpty(runSummary) || (status === "interrupted" ? "Codex 任务已被打断。" : "Codex 执行失败。");
+  return firstNonEmpty(runSummary) || (status === "interrupted" ? "Codex task interrupted." : "Codex run failed.");
 }
 
 function desktopTerminalRunEvent(threadID, status, summary, sessionHint, detailSnapshot, terminalID = "") {
@@ -6067,7 +6071,7 @@ function desktopTerminalRunEvent(threadID, status, summary, sessionHint, detailS
     Payload: {
       thread_id: threadID,
       native_session: {
-        plugin_id: "codex",
+        plugin_id: PLUGIN_ID,
         native_session_id: threadID,
         native_thread_id: threadID,
         surface: "codex-desktop",
@@ -6129,7 +6133,7 @@ function detailSnapshotFromDesktopWatch(threadID = "", snapshot = {}, messagesSi
   const cachedOptions = liveControlOptionsCacheEntry(threadID);
   const run = controlsRuntimeFromDesktopSnapshot(threadID, runtime) || {
     status: "idle",
-    summary: "当前会话空闲。",
+    summary: "Conversation is idle.",
     primary_action: "send",
   };
   const runtimeStatus = String(run && run.status || "").trim().toLowerCase();
@@ -6197,7 +6201,7 @@ function emitDesktopWatchEvent(subscriber, event) {
 function desktopSessionHint(threadID, snapshot = {}, status = "") {
   const thread = snapshot && snapshot.thread && typeof snapshot.thread === "object" ? snapshot.thread : {};
   return {
-    plugin_id: "codex",
+    plugin_id: PLUGIN_ID,
     native_session_id: threadID,
     native_thread_id: threadID,
     surface: "codex-desktop",
@@ -6233,7 +6237,7 @@ function emitDesktopWatchDetail(subscriber, threadID, detailSnapshot, status, su
       primary_action: firstNonEmpty(detailSnapshot.primary_action),
       detail_snapshot: detailSnapshot,
       native_session: {
-        plugin_id: "codex",
+        plugin_id: PLUGIN_ID,
         native_session_id: threadID,
         native_thread_id: threadID,
         surface: "codex-desktop",
@@ -6256,7 +6260,7 @@ function emitDesktopWatchArchived(threadID) {
   }
   sessionListCache = { at: 0, threads: null, inFlight: null };
   const hint = {
-    plugin_id: "codex",
+    plugin_id: PLUGIN_ID,
     native_session_id: threadID,
     native_thread_id: threadID,
     surface: "codex-desktop",
@@ -6270,11 +6274,11 @@ function emitDesktopWatchArchived(threadID) {
       ID: `desktop-archived-${threadID}-${Date.now()}`,
       Type: "desktop.session.archived",
       Status: "idle",
-      Summary: "Codex 会话已归档。",
+      Summary: "Codex conversation archived.",
       CreatedAt: new Date().toISOString(),
       Payload: {
         native_session: {
-          plugin_id: "codex",
+          plugin_id: PLUGIN_ID,
           native_session_id: threadID,
           native_thread_id: threadID,
           surface: "codex-desktop",
@@ -6296,7 +6300,7 @@ function hasPluginWideDesktopWatchSubscriber() {
 function desktopDirectorySessionHint(thread = {}) {
   const threadID = firstNonEmpty(thread && thread.id);
   return {
-    plugin_id: "codex",
+    plugin_id: PLUGIN_ID,
     native_session_id: threadID,
     native_thread_id: threadID,
     surface: "codex-desktop",
@@ -6315,7 +6319,7 @@ function emitDesktopDirectoryReconciled() {
       ID: `desktop-directory-${Date.now()}`,
       Type: "desktop.session.directory.reconciled",
       Status: "idle",
-      Summary: "Codex 会话目录已更新。",
+      Summary: "Codex conversations updated.",
       CreatedAt: new Date().toISOString(),
       Payload: { source: "codex-storage" },
     });
@@ -6331,7 +6335,7 @@ function emitDesktopDirectoryIndexChanged(thread) {
       ID: `desktop-directory-index-${hint.native_thread_id}-${Date.now()}`,
       Type: "desktop.session.index.changed",
       Status: "idle",
-      Summary: "Codex 会话目录项已更新。",
+      Summary: "Codex conversation updated.",
       CreatedAt: new Date().toISOString(),
       Payload: {
         native_session: {
@@ -6477,7 +6481,7 @@ function emitDesktopWatchStale(subscriber, threadID) {
   };
   subscriber.signature = "";
   subscriber.detailSnapshot = staleSnapshot;
-  emitDesktopWatchDetail(subscriber, threadID, staleSnapshot, "idle", "Codex 会话已切到其他桌面窗口。", subscriber.sessionHint);
+  emitDesktopWatchDetail(subscriber, threadID, staleSnapshot, "idle", "Codex conversation moved to another window.", subscriber.sessionHint);
 }
 
 function emitDesktopWatchUnavailable(subscriber) {
@@ -6487,13 +6491,13 @@ function emitDesktopWatchUnavailable(subscriber) {
     ID: `desktop-watch-unavailable-${subscriber.threadID}-${Date.now()}`,
     Type: "watcher.foreground.unavailable",
     Status: "unavailable",
-    Summary: "Codex 前台会话状态暂时不可用。",
+    Summary: "Codex foreground conversation is temporarily unavailable.",
     CreatedAt: new Date().toISOString(),
     Payload: {
       watcher: "foreground",
       code: "foreground_watcher_unavailable",
       native_session: subscriber.pluginWide && isThreadID(desktopWatchState.lastValidThreadID) ? {
-        plugin_id: "codex",
+        plugin_id: PLUGIN_ID,
         native_session_id: desktopWatchState.lastValidThreadID,
         native_thread_id: desktopWatchState.lastValidThreadID,
         surface: "codex-desktop",
@@ -6645,7 +6649,7 @@ async function pollDesktopWatch() {
         threadID,
         detailSnapshot,
         status,
-        runtime.waiting_approval ? "Codex 正在等待审批。" : runtime.running ? "Codex 会话状态已更新。" : "Codex 会话设置已更新。",
+        runtime.waiting_approval ? "Codex is waiting for approval." : runtime.running ? "Codex conversation updated." : "Codex conversation settings updated.",
         sessionHint,
       );
       if (messagesChanged) {
@@ -6892,7 +6896,7 @@ async function waitForRun(session, runID) {
     if (result.terminal) {
       const status = result.failed ? "failed" : result.interrupted ? "interrupted" : "completed";
       const summary = result.summary
-        || (result.failed ? "Codex 自动化执行失败。" : result.interrupted ? "Codex 任务已被打断。" : "Codex 已完成。");
+        || (result.failed ? "Codex automation failed." : result.interrupted ? "Codex task interrupted." : "Codex completed.");
       const detailSnapshot = await terminalDetailSnapshot(threadID).catch(() => null);
       desktopTerminalTransition(threadID, status, result.terminalID, result.terminalAt);
       persistDesktopTerminalRuns();
@@ -6953,7 +6957,7 @@ async function terminalDetailSnapshot(threadID = "") {
 
 const adapter = {
   id() {
-    return "codex";
+    return PLUGIN_ID;
   },
   async probe() {
     return capability();

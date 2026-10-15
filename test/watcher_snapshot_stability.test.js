@@ -254,7 +254,7 @@ test("later task start does not make a completed prior turn replay as running", 
     const second = turns.find((turn) => turn.turn_id === "user-two");
 
     assert.equal(first.messages[1].Progress.Status, "completed");
-    assert.match(first.messages[1].Content, /^已处理 /);
+    assert.match(first.messages[1].Content, /^Done in \d+m \d+s$/);
     assert.equal(second.messages[1].Progress.Status, "running");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

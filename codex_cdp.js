@@ -608,7 +608,7 @@ function approvalDOMHelpersSource() {
       const codeEl = dialog.querySelector('code, pre, kbd');
       const input = approvalInputElement(dialog);
       const text = textOf(dialog);
-      const title = textOf(titleEl) || '等待审批';
+      const title = textOf(titleEl) || 'Waiting for approval';
       const approvalId = threadId ? ('live:' + threadId) : 'live:current';
       const actions = approvalActionElements(dialog).map((el, index) => {
         const label = textOf(el) || (el.getAttribute('aria-label') || '').trim() || ('Action ' + (index + 1));
@@ -1212,7 +1212,7 @@ function reasoningEffortRowsFromFacts(facts) {
       optionId: `${EFFORT_CONTROL_ID}:${level}`,
       label: selections
         ? (mixedModels ? `${selections[level].modelLabel || selections[level].model} · ${selections[level].reasoningEffort}` : selections[level].reasoningEffort)
-        : level === index && currentLabel ? currentLabel : `档位 ${level + 1}`,
+        : level === index && currentLabel ? currentLabel : `Level ${level + 1}`,
       checked: level === index,
       disabled: selections ? selections[level].disabled === true : false,
     });
@@ -1951,6 +1951,12 @@ class CodexDesktopController extends CdpPageClient {
   }
 
   async resolvePageTarget() {
+    if (process.env.PRISM_CODEX_PLUGIN_ID === 'codex-windows') {
+      const connection = await require('./windows-bootstrap.cjs').updateConnection();
+      if (!connection.port && !process.env.PRISM_CODEX_CDP_URL && !process.env.PRISM_CODEX_CDP_PORT && !process.env.PRISM_CODEX_DEVTOOLS_FILE) {
+        throw new Error('Codex is open without local CDP. Close it normally, then use the Codex + Prism shortcut.');
+      }
+    }
     const targetUserDataDir = firstNonEmpty(this.options.userDataDir, process.env.PRISM_CODEX_USER_DATA_DIR, defaultProfileDir());
     const overrideUrl = firstNonEmpty(process.env.PRISM_CODEX_CDP_URL, this.options.cdpUrl);
     if (overrideUrl) {
@@ -3310,7 +3316,7 @@ class CodexDesktopController extends CdpPageClient {
       const flatGroup = flatIntelligenceModelGroup(flatRows);
       if (!flatGroup) throw new Error("control_target_stale: intelligence menu has no readable groups");
       return effortRows.length
-        ? [flatGroup, { control_id: EFFORT_CONTROL_ID, label: "推理强度", rows: effortRows }]
+        ? [flatGroup, { control_id: EFFORT_CONTROL_ID, label: "Reasoning effort", rows: effortRows }]
         : [flatGroup];
     }
     const groups = [];

@@ -586,7 +586,7 @@ test("flat model menu includes the native reasoning slider group", async () => {
   controller.closeVisibleMenus = async () => { closed = true; };
   const groups = await controller.listIntelligenceMenuGroups();
   assert.equal(groups.length, 2);
-  assert.deepEqual(groups[1], { control_id: cdpTest.EFFORT_CONTROL_ID, label: "推理强度", rows: effortRows });
+  assert.deepEqual(groups[1], { control_id: cdpTest.EFFORT_CONTROL_ID, label: "Reasoning effort", rows: effortRows });
   assert.equal(closed, true);
 });
 

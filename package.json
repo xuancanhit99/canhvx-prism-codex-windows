@@ -1,7 +1,7 @@
 {
-  "name": "codex-automation-plugin",
+  "name": "prism-codex-windows",
   "private": true,
-  "version": "0.1.37",
+  "version": "0.1.37-windows.4",
   "description": "Codex desktop automation adapter scaffold",
   "main": "index.js",
   "scripts": {

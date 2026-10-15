@@ -35,7 +35,7 @@ test("foreground detail context is derived from the rollout token event", () => 
       context_tokens_used: "120352",
       context_window_total: "258400",
       context_window_usage_percent: "47",
-      context_window: "上下文窗口 258400",
+      context_window: "Context window 258400",
     });
     assert.equal(thread.metadata.model, "5.5");
     assert.equal(thread.metadata.context_window_total, "258400");

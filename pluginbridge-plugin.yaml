@@ -1,20 +1,16 @@
-id: codex
+id: codex-windows
 schema_version: 1
-display_name: Codex
+display_name: Codex Windows
 description: Automates Codex Desktop so Prism can browse sessions, read history, continue threads, and wait for full replies.
 icon_url: https://registry.npmmirror.com/@lobehub/icons-static-avatar/latest/files/avatars/codex.webp
 icon_svg_url: https://registry.npmmirror.com/@lobehub/icons-static-svg/latest/files/icons/codex.svg
-version: 0.1.37
+version: 0.1.37-windows.4
 plugin_protocol_version: "4"
 min_hub_version: 0.1.0
 integration_mode: desktop-automation
 transport: process
 runtime_modes: [desktop]
 default_runtime_mode: desktop
-managed_launch_specs:
-  - kind: desktop-app
-    app: codex
-    ready: probe
 runtime_controls:
   desktop:
     model: interactive
@@ -26,13 +22,13 @@ runtime_operations:
     pin: menu
     archive: menu
     delete: menu
-managed_launch: true
+managed_launch: false
 # History reads and all retained Plugin state are bounded. Keep a final V8
 # guardrail as well so malformed desktop data cannot grow one Plugin process
 # until it exhausts the host memory.
 runtime_dependencies:
   node: ">=22.0.0 <23.0.0"
-command: ["${runtime.node}", "--max-old-space-size=320", "index.js"]
+command: ["${runtime.node}", "--max-old-space-size=320", "--require", "./windows-bootstrap.cjs", "index.js"]
 capabilities:
   native_visible_input: true
   native_visible_output: true
